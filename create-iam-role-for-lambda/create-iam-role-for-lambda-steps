@@ -1,0 +1,193 @@
+⚡ Why Lambda is Required?
+
+Amazon Bedrock Agent:
+
+✅ Understands natural language
+
+✅ Makes intelligent decisions
+
+❌ However, it cannot directly access AWS resources like EC2, EBS, or Elastic IP.
+
+👉 Therefore, we use AWS Lambda:
+
+🧠 + 🖐️ AI + Lambda Model
+
+Bedrock Agent = Brain (understands & decides)
+
+Lambda = Hands (executes AWS actions)
+
+
+
+🔧 Lambda Functions Used
+1️⃣ discover_cost_resources
+
+Scans the AWS account
+
+Identifies unused or chargeable resources
+
+Examples:
+
+Unattached EBS volumes
+
+Unused Elastic IPs
+
+
+
+2️⃣ delete_cost_resource
+
+Deletes only user-approved resources
+
+Executes only after user types: CONFIRM
+
+Ensures safe and controlled operations
+
+
+
+
+🔐 IAM Role for Lambda (Critical Step)
+
+To allow Lambda to interact with AWS services, we create an execution role.
+
+
+
+🎯 Purpose of this Role
+
+Enables Lambda to:
+
+Read AWS resources (Describe APIs)
+
+Delete only specific resources (EIP, EBS, Snapshots)
+
+Follows the Principle of Least Privilege 🔒
+
+
+
+🪜 Step-by-Step: Create IAM Role
+
+🪜 Step 1: Open IAM
+
+Navigate to: IAM → Roles
+
+Click Create role
+
+
+
+🪜 Step 2: Select Trusted Entity
+
+Select: AWS Service
+
+Under use case:
+
+Choose Lambda
+
+Click Next
+
+
+
+🪜 Step 3: Attach Basic Policy
+
+Search and select:
+
+✅ AWSLambdaBasicExecutionRole
+
+👉 This provides:
+
+CloudWatch logging
+
+Basic execution permissions
+
+
+
+
+🪜 Step 4: Name the Role
+
+Role Name:
+BedrockCostAgentLambdaRole
+
+Description:
+Allows Lambda functions to call AWS services for cost optimization tasks
+
+Click Create role
+
+➕ Step 5: Attach Custom Inline Policy
+
+Now we assign permissions for AWS resource access.
+
+
+
+🪜 Step 5.1: Open the Role
+
+Search for: BedrockCostAgentLambdaRole
+
+Open it
+
+Click Add permissions → Create inline policy
+
+
+
+🪜 Step 5.2: Add Policy (JSON)
+
+Switch to JSON editor
+
+Paste the policy from your provided source (Gist)
+
+
+
+🪜 Step 5.3: Policy Capabilities
+🔍 Read Permissions
+
+ec2:DescribeInstances
+
+ec2:DescribeVolumes
+
+ec2:DescribeSnapshots
+
+ec2:DescribeAddresses
+
+ec2:DescribeNatGateways
+
+❌ Safe Delete Permissions
+
+ec2:ReleaseAddress (Elastic IP)
+
+ec2:DeleteVolume
+
+ec2:DeleteSnapshot
+
+👉 Only specific and controlled actions are allowed
+
+
+
+🪜 Step 5.4: Name Policy
+
+Policy Name:
+BedrockCostAgent-DiscoveryPolicy
+
+Click Create policy
+
+✅ Final Result
+
+Your IAM Role will include:
+
+✅ AWSLambdaBasicExecutionRole
+
+✅ BedrockCostAgent-DiscoveryPolicy
+
+
+
+🧠 Architecture Summary
+User → Bedrock Agent → Lambda → AWS Services
+
+Agent decides what to do
+
+Lambda executes the action
+
+IAM Role controls what is allowed
+
+
+
+🔥 Key Takeaway
+
+Without Lambda and IAM Role, the AI agent can only think.
+
+With Lambda, it can act safely and intelligently 🚀
