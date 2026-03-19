@@ -1,0 +1,80 @@
+🧠 Agent Brain Rules (Instructions)
+
+📌 Why Brain Rules Are Needed
+
+Although the selected model (Nova Pro) is powerful, without proper instructions the agent may:
+
+Produce inconsistent responses
+
+Take risky actions too quickly
+
+Skip confirmation steps
+
+Generate overly long or complex outputs
+
+👉 To control this behavior, we define Agent Instructions (Brain Rules).
+
+These rules ensure:
+
+✅ Consistent tone and format
+
+✅ Safe execution of actions
+
+✅ Proper use of tools (Lambda)
+
+✅ Controlled and predictable behavior
+
+
+
+⚙️ Where to Configure
+
+Open your agent in Amazon Bedrock
+
+Go to Agent Builder
+
+Scroll to Instructions for the Agent
+
+Paste the following instructions
+
+
+
+🧾 Agent Instructions (Brain Rules)
+copy and paste instructions from instruction file
+
+
+
+💾 Step 3: Save Configuration
+
+Click Save & Exit
+
+
+
+🚀 Step 4: Prepare the Agent
+
+Go to the Test panel (right side)
+
+
+
+Click Prepare
+
+👉 This applies all the instructions to the agent
+
+✅ Result of This Step
+
+After adding Brain Rules:
+
+✅ Agent understands when to call tools
+
+✅ Agent follows safe deletion workflow
+
+✅ Agent avoids risky operations
+
+✅ Responses become structured and consistent
+
+✅ System behaves predictably and securely
+
+
+
+🧠 Key Insight
+
+These instructions act as the "brain" of the system, ensuring the AI behaves like a responsible cloud engineer, not just a chatbot.
