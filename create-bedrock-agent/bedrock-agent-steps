@@ -1,1 +1,102 @@
+🤖 Why Amazon Bedrock?
+
+We chose Amazon Bedrock for building this AI agent because:
+
+It is a fully managed service, eliminating infrastructure overhead
+
+Provides secure access to foundation models within AWS ecosystem
+
+Seamlessly integrates with AWS services like Lambda, API Gateway, etc.
+
+Ideal for building scalable and production-ready AI agents
+
+
+
+🧠 Model Selection: Nova Pro
+
+We selected Nova Pro because:
+
+It is a high-capability general-purpose model
+
+Offers strong price-to-performance ratio
+
+Optimized for agent-based workflows and reasoning tasks
+
+Capable of making intelligent decisions and tool calls
+
+
+
+
+⚙️ Agent Creation Steps
+🪜 Step 1: Open Bedrock Console
+
+Navigate to:
+Amazon Bedrock → Agents → Create Agent
+
+
+
+🪜 Step 2: Configure Agent Details
+
+Fill in the required details:
+
+Agent Name:
+Ritik-AWS-Admin-Agent
+
+Description:
+AWS Admin assistant for discovering cost optimization opportunities and managing cloud resources intelligently
+
+
+
+🪜 Step 3: Assign IAM Role
+
+Select: Create and use a new service role
+
+This allows the agent to securely interact with AWS services
+
+
+
+🪜 Step 4: Select Model
+
+Choose model: Nova Pro
+
+👉 This model will act as the brain of the agent, responsible for:
+
+Understanding user queries
+
+Making decisions
+
+Triggering appropriate AWS actions
+
+
+
+🪜 Step 5: Save and Exit
+
+Click Save and Exit
+
+Your agent is now successfully created 🎉
+
+
+
+
+🧠 What Happens Internally?
+
+Once the agent is created:
+
+Nova Pro processes user input
+
+Interprets intent using natural language understanding
+
+Decides whether to:
+
+Respond directly OR
+
+Call AWS tools (via Lambda functions)
+
+Enables intelligent automation with human-in-the-loop control
+
+✅ Current Status
+
+✅ Agent Created
+
+⏳ Agent not yet prepared (requires "Prepare" before testing)
 
