@@ -129,8 +129,7 @@ Click Add permissions → Create inline policy
 
 Switch to JSON editor
 
-Paste the policy from your provided source (Gist)
-
+Paste the policy from iam role and policy json code
 
 
 🪜 Step 5.3: Policy Capabilities
