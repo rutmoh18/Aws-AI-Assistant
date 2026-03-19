@@ -9,8 +9,6 @@ Build an AI-powered AWS assistant that helps users understand, analyze, and mana
 
 
 
-
-
 ❗ Problem Statement
 
 In real-world AWS environments:
