@@ -1,0 +1,425 @@
+import json
+import boto3
+from botocore.exceptions import ClientError
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+
+def _err_to_text(e: Exception) -> str:
+    if isinstance(e, ClientError):
+        code = e.response.get("Error", {}).get("Code", "ClientError")
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        return f"{code}: {msg}"
+    return str(e)
+
+
+# -----------------------------
+# Business logic (your tools)
+# -----------------------------
+
+def discover_cost_resources(region: str):
+    ec2 = boto3.client("ec2", region_name=region)
+
+    # Elastic IPs
+    eips = ec2.describe_addresses().get("Addresses", [])
+    eip_items = []
+    for a in eips:
+        alloc_id = a.get("AllocationId")
+        assoc_id = a.get("AssociationId")
+        eip_items.append({
+            "type": "EIP",
+            "id": alloc_id or a.get("PublicIp"),
+            "allocation_id": alloc_id,
+            "public_ip": a.get("PublicIp"),
+            "attached": bool(assoc_id),
+            "chargeable": not bool(assoc_id),
+            "reason": "Elastic IP is typically chargeable when allocated but not associated (unattached)."
+        })
+
+    # EBS Volumes
+    vols = ec2.describe_volumes().get("Volumes", [])
+    vol_items = []
+    for v in vols:
+        attached = len(v.get("Attachments", [])) > 0
+        attachment = (v.get("Attachments") or [{}])[0] if attached else {}
+        vol_items.append({
+            "type": "EBS_VOLUME",
+            "id": v.get("VolumeId"),
+            "state": v.get("State"),
+            "size_gb": v.get("Size"),
+            "attached": attached,
+            "attached_instance_id": attachment.get("InstanceId") if attached else None,
+            "chargeable": True,
+            "reason": "EBS storage is chargeable even if the volume is not attached."
+        })
+
+    # Snapshots (limit)
+    snap_items = []
+    try:
+        snaps = ec2.describe_snapshots(OwnerIds=["self"], MaxResults=50).get("Snapshots", [])
+        snap_items = [{
+            "type": "EBS_SNAPSHOT",
+            "id": s.get("SnapshotId"),
+            "size_gb": s.get("VolumeSize"),
+            "state": s.get("State"),
+            "chargeable": True,
+            "reason": "EBS snapshots are chargeable (stored snapshot data)."
+        } for s in snaps]
+    except ClientError as e:
+        snap_items = [{"type": "EBS_SNAPSHOT", "id": "N/A", "chargeable": False, "reason": _err_to_text(e)}]
+
+    # NAT Gateways (list only)
+    nat_items = []
+    try:
+        nat_gws = ec2.describe_nat_gateways().get("NatGateways", [])
+        for n in nat_gws:
+            state = n.get("State")
+            nat_items.append({
+                "type": "NAT_GATEWAY",
+                "id": n.get("NatGatewayId"),
+                "state": state,
+                "chargeable": state not in ["deleted", "deleting"],
+                "reason": "NAT Gateway is chargeable while provisioned (hourly + data processing).",
+                "warning": "Deleting NAT Gateway can break internet access for private subnets."
+            })
+    except ClientError as e:
+        nat_items = [{"type": "NAT_GATEWAY", "id": "N/A", "chargeable": False, "reason": _err_to_text(e)}]
+
+    # ✅ EC2 Instances (NEW)
+    inst_items = []
+    try:
+        reservations = ec2.describe_instances().get("Reservations", [])
+        for r in reservations:
+            for i in r.get("Instances", []):
+                state = i.get("State", {}).get("Name")
+                instance_id = i.get("InstanceId")
+
+                # Name tag
+                name_tag = ""
+                for t in i.get("Tags", []) or []:
+                    if t.get("Key") == "Name":
+                        name_tag = t.get("Value") or ""
+                        break
+
+                inst_items.append({
+                    "type": "EC2_INSTANCE",
+                    "id": instance_id,
+                    "name": name_tag,
+                    "state": state,
+                    "instance_type": i.get("InstanceType"),
+                    "public_ip": i.get("PublicIpAddress"),
+                    "private_ip": i.get("PrivateIpAddress"),
+                    "chargeable": state in ["running", "stopped"],
+                    "reason": "EC2 costs compute when running. When stopped, compute is not charged but EBS storage still costs."
+                })
+    except ClientError as e:
+        inst_items = [{"type": "EC2_INSTANCE", "id": "N/A", "chargeable": False, "reason": _err_to_text(e)}]
+
+    items = eip_items + vol_items + snap_items + nat_items + inst_items
+
+    # Safe delete candidates (V1)
+    candidates = []
+    for i in items:
+        if i["type"] == "EIP" and i.get("chargeable") and not i.get("attached"):
+            candidates.append(i)
+        if i["type"] == "EBS_VOLUME" and not i.get("attached"):
+            candidates.append(i)
+        if i["type"] == "EBS_SNAPSHOT" and i.get("id") not in ["N/A", None]:
+            candidates.append(i)
+        # NOTE: EC2 termination is powerful; keep it user-driven (not auto-candidate)
+
+    return {
+        "region": region,
+        "summary": {
+            "eips": len(eip_items),
+            "volumes": len(vol_items),
+            "snapshots": len([x for x in snap_items if x.get("id") not in ["N/A", None]]),
+            "nat_gateways": len([x for x in nat_items if x.get("id") not in ["N/A", None]]),
+            "ec2_instances": len([x for x in inst_items if x.get("id") not in ["N/A", None]]),
+            "total_items": len(items),
+            "delete_candidates": len(candidates)
+        },
+        "items": items,
+        "delete_candidates": candidates[:10]
+    }
+
+
+def validate_safe_delete(resource_type: str, resource_id: str, region: str):
+    ec2 = boto3.client("ec2", region_name=region)
+
+    try:
+        if resource_type == "EIP":
+            addrs = ec2.describe_addresses().get("Addresses", [])
+            match = next((a for a in addrs if a.get("AllocationId") == resource_id), None)
+            if not match:
+                return False, "EIP not found (maybe already deleted). Use AllocationId like eipalloc-xxxx."
+            if match.get("AssociationId"):
+                return False, "Blocked: EIP is attached."
+            return True, "OK"
+
+        if resource_type == "EBS_VOLUME":
+            vols = ec2.describe_volumes(VolumeIds=[resource_id]).get("Volumes", [])
+            if not vols:
+                return False, "EBS volume not found (maybe already deleted)."
+            if vols[0].get("Attachments"):
+                inst_id = vols[0]["Attachments"][0].get("InstanceId")
+                return False, f"Blocked: Volume is attached to EC2 {inst_id}. Terminate EC2 (or detach) first."
+            return True, "OK"
+
+        if resource_type == "EBS_SNAPSHOT":
+            snaps = ec2.describe_snapshots(OwnerIds=["self"], SnapshotIds=[resource_id]).get("Snapshots", [])
+            if not snaps:
+                return False, "EBS snapshot not found (maybe already deleted)."
+            return True, "OK"
+
+        if resource_type == "NAT_GATEWAY":
+            return False, "Blocked in V1: NAT deletion disabled for safety."
+
+        if resource_type == "EC2_INSTANCE":
+            resp = ec2.describe_instances(InstanceIds=[resource_id])
+            res = resp.get("Reservations", [])
+            if not res or not res[0].get("Instances"):
+                return False, "EC2 instance not found (maybe already terminated)."
+
+            state = res[0]["Instances"][0].get("State", {}).get("Name")
+            if state in ["terminated", "shutting-down"]:
+                return False, f"Blocked: instance state is {state}."
+            return True, "OK"
+
+        return False, "Blocked: type not allowed."
+
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "ClientError")
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        if code in ["InvalidVolume.NotFound", "InvalidSnapshot.NotFound", "InvalidAllocationID.NotFound", "InvalidInstanceID.NotFound"]:
+            return False, f"{code}: already deleted/terminated or not found."
+        return False, f"{code}: {msg}"
+
+
+def delete_cost_resource(resource_type: str, resource_id: str, region: str):
+    ec2 = boto3.client("ec2", region_name=region)
+
+    try:
+        if resource_type == "EIP":
+            ec2.release_address(AllocationId=resource_id)
+            return {"status": "deleted", "type": resource_type, "id": resource_id}
+
+        if resource_type == "EBS_VOLUME":
+            ec2.delete_volume(VolumeId=resource_id)
+            return {"status": "deleted", "type": resource_type, "id": resource_id}
+
+        if resource_type == "EBS_SNAPSHOT":
+            ec2.delete_snapshot(SnapshotId=resource_id)
+            return {"status": "deleted", "type": resource_type, "id": resource_id}
+
+        if resource_type == "EC2_INSTANCE":
+            ec2.terminate_instances(InstanceIds=[resource_id])
+            return {"status": "deleted", "type": resource_type, "id": resource_id, "note": "Termination initiated."}
+
+        return {"status": "blocked", "type": resource_type, "id": resource_id, "reason": "Not allowed."}
+
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "ClientError")
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        if code in ["InvalidVolume.NotFound", "InvalidSnapshot.NotFound", "InvalidAllocationID.NotFound", "InvalidInstanceID.NotFound"]:
+            return {"status": "already_deleted", "type": resource_type, "id": resource_id, "reason": f"{code}: {msg}"}
+        return {"status": "failed", "type": resource_type, "id": resource_id, "reason": f"{code}: {msg}"}
+
+
+# -----------------------------
+# Bedrock Agents adapter layer
+# -----------------------------
+
+def _get_str(v):
+    if isinstance(v, str):
+        return v
+    if isinstance(v, dict):
+        for k in ("name", "function", "actionGroup", "value", "id"):
+            if isinstance(v.get(k), str) and v.get(k):
+                return v.get(k)
+        for _k, _val in v.items():
+            if isinstance(_val, str) and _val:
+                return _val
+    return ""
+
+
+def _params_to_dict(parameters):
+    if isinstance(parameters, dict):
+        return parameters
+
+    out = {}
+    for p in parameters or []:
+        if not isinstance(p, dict):
+            continue
+
+        if "name" in p and "value" in p:
+            n = p.get("name")
+            v = p.get("value")
+            if n:
+                out[n] = v
+            continue
+
+        for k, v in p.items():
+            out[k] = v
+
+    return out
+
+
+def _bedrock_response(action_group, function_name, payload_obj, response_state=None,
+                      session_attributes=None, prompt_session_attributes=None):
+    body_text = payload_obj if isinstance(payload_obj, str) else json.dumps(payload_obj, default=str)
+
+    function_response = {
+        "responseBody": {
+            "TEXT": {
+                "body": body_text
+            }
+        }
+    }
+    if response_state:
+        function_response["responseState"] = response_state  # REPROMPT is safe; avoid FAILURE for normal cases
+
+    return {
+        "messageVersion": "1.0",
+        "response": {
+            "actionGroup": action_group,
+            "function": function_name,
+            "functionResponse": function_response
+        },
+        "sessionAttributes": session_attributes or {},
+        "promptSessionAttributes": prompt_session_attributes or {}
+    }
+
+
+def lambda_handler(event, context):
+    print("EVENT:", json.dumps(event, default=str))
+
+    action_group = _get_str(event.get("actionGroup", ""))
+    function_name = _get_str(event.get("function", ""))
+
+    params = _params_to_dict(event.get("parameters", {}))
+    session_attributes = event.get("sessionAttributes") or {}
+    prompt_session_attributes = event.get("promptSessionAttributes") or {}
+
+    region = params.get("region") or "ap-south-1"
+
+    try:
+        if function_name == "discover_cost_resources":
+            data = discover_cost_resources(region)
+
+            payload = {
+                "ok": True,
+                "data": data,
+                "hint_to_agent": (
+                    "Rules:\n"
+                    "1) Do NOT delete anything without explicit user approval.\n"
+                    "2) For deletion tool, user must send confirm_token=CONFIRM.\n"
+                    "   If user denies, send confirm_token=SKIP (or DENY/NO/CANCEL).\n"
+                    "3) Dependency order: Attached EBS volumes cannot be deleted. "
+                    "Terminate EC2 (or detach) first, then delete the leftover volume.\n"
+                    "4) Snapshots can be deleted independently if user confirms.\n"
+                    "Ask user which resource to act on."
+                )
+            }
+
+            return _bedrock_response(
+                action_group, function_name, payload,
+                session_attributes={},
+                prompt_session_attributes={}
+            )
+
+        if function_name == "delete_cost_resource":
+            rtype = (params.get("resource_type") or "").upper()
+            rid = params.get("resource_id")
+            confirm = (params.get("confirm_token") or "").upper()
+
+            # ✅ SKIP/DENY flow (NEW)
+            if confirm in ["SKIP", "DENY", "NO", "CANCEL"]:
+                return _bedrock_response(
+                    action_group, function_name,
+                    {
+                        "ok": True,
+                        "status": "skipped",
+                        "type": rtype,
+                        "id": rid,
+                        "region": region,
+                        "message": "User denied deletion. Skip this resource and move to the next."
+                    },
+                    session_attributes=session_attributes,
+                    prompt_session_attributes=prompt_session_attributes
+                )
+
+            # confirmation required
+            if confirm != "CONFIRM":
+                return _bedrock_response(
+                    action_group, function_name,
+                    "Confirmation required. Type CONFIRM to proceed, or type SKIP to move to next resource.",
+                    response_state="REPROMPT",
+                    session_attributes=session_attributes,
+                    prompt_session_attributes=prompt_session_attributes
+                )
+
+            if not rtype or not rid:
+                return _bedrock_response(
+                    action_group, function_name,
+                    "Missing resource_type or resource_id.",
+                    response_state="REPROMPT",
+                    session_attributes=session_attributes,
+                    prompt_session_attributes=prompt_session_attributes
+                )
+
+            allowed, reason = validate_safe_delete(rtype, rid, region)
+            if not allowed:
+                return _bedrock_response(
+                    action_group, function_name,
+                    {"ok": False, "status": "blocked", "type": rtype, "id": rid, "reason": reason, "region": region},
+                    response_state="REPROMPT",
+                    session_attributes=session_attributes,
+                    prompt_session_attributes=prompt_session_attributes
+                )
+
+            result = delete_cost_resource(rtype, rid, region)
+
+            if result.get("status") in ["deleted", "already_deleted"]:
+                return _bedrock_response(
+                    action_group, function_name,
+                    {"ok": True, **result, "region": region},
+                    session_attributes=session_attributes,
+                    prompt_session_attributes=prompt_session_attributes
+                )
+
+            return _bedrock_response(
+                action_group, function_name,
+                {"ok": False, **result, "region": region},
+                response_state="REPROMPT",
+                session_attributes=session_attributes,
+                prompt_session_attributes=prompt_session_attributes
+            )
+
+        return _bedrock_response(
+            action_group, function_name,
+            f"Unknown function: {function_name}",
+            response_state="REPROMPT",
+            session_attributes=session_attributes,
+            prompt_session_attributes=prompt_session_attributes
+        )
+
+    except ClientError as e:
+        return _bedrock_response(
+            action_group, function_name,
+            {"ok": False, "error": _err_to_text(e), "region": region},
+            response_state="REPROMPT",
+            session_attributes=session_attributes,
+            prompt_session_attributes=prompt_session_attributes
+        )
+
+    except Exception as e:
+        return _bedrock_response(
+            action_group, function_name,
+            {"ok": False, "error": str(e), "region": region},
+            response_state="REPROMPT",
+            session_attributes=session_attributes,
+            prompt_session_attributes=prompt_session_attributes
+        )
