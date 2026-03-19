@@ -1,0 +1,159 @@
+
+🔗 Connecting Lambda to Bedrock Agent using Action Groups
+
+📌 Overview
+
+In this step, we connect the AWS Lambda function to the Amazon Bedrock Agent using an Action Group.
+
+An Action Group enables the AI agent to:
+
+Execute external tools (like Lambda functions)
+
+Perform real AWS operations
+
+Move beyond just generating text responses
+
+
+
+❓ Why Action Groups Are Needed
+
+A Bedrock Agent alone can:
+
+Understand user queries
+
+Generate intelligent responses
+
+However, it cannot directly interact with AWS services.
+
+To perform real operations such as:
+
+Discovering AWS resources
+
+Deleting unused resources
+
+Running automation tasks
+
+👉 The agent must use Action Groups, which act as a bridge between:
+
+AI Agent 🧠
+
+AWS Services ⚙️ (via Lambda)
+
+
+
+
+🪜 Steps to Add Lambda Function to the Agent
+
+
+Step 1: Open Bedrock Console
+
+Navigate to Amazon Bedrock → Agents
+
+
+Step 2: Select Your Agent
+
+Choose your agent:
+Ritik-AWS-Admin-Agent
+
+
+Step 3: Open Agent Builder
+
+Click Edit in Agent Builder
+
+
+
+Step 4: Create Action Group
+
+Scroll to Action Groups
+
+Click Add
+
+Fill the details:
+
+Action Group Name:
+cost-cleanup-tools
+
+Action Group Type:
+Define with function details
+
+
+
+Step 5: Configure Lambda Invocation
+
+Select: Use existing Lambda function
+
+Choose:
+BedrockCostAgentTools
+
+
+
+⚙️ Define Functions for the Agent
+
+Inside the Action Group, we define the functions the agent can call.
+
+
+
+🔍 Function 1: Discover Resources
+
+Function Name:
+discover_cost_resources
+
+Confirmation Required:
+❌ Disabled
+
+Parameters:
+Name	Type	Required	Description
+Region	String	No	AWS region to scan (default: ap-south-1)
+🗑️ Function 2: Delete Resources
+
+Function Name:
+delete_cost_resource
+
+Description:
+Always call using a single JSON object containing resource_type, resource_id, region, and confirm_token.
+
+Confirmation Required:
+❌ Disabled
+
+Parameters:
+Name	Type	Required	Description
+confirm_token	String	Yes	Must be CONFIRM to execute deletion
+resource_type	String	Yes	EBS_SNAPSHOT, EBS_VOLUME, EIP, EC2_INSTANCE
+resource_id	String	Yes	Resource ID (vol-xxx, snap-xxx, etc.)
+region	String	Yes	AWS region (default: ap-south-1)
+
+
+💾 Step 6: Save Configuration
+
+Click Save & Exit
+
+
+
+🚀 Step 7: Prepare the Agent
+
+In the Test panel (right side)
+
+
+Click Prepare
+
+👉 This step applies all configurations and enables the agent for testing
+
+✅ Result of This Step
+
+
+
+After completing this setup:
+
+✅ Bedrock Agent is connected to Lambda
+
+✅ Agent can discover AWS resources
+
+✅ Agent can delete resources safely (with confirmation)
+
+✅ Real AWS operations are now enabled
+
+
+
+🧠 Key Insight
+
+Action Groups transform your AI agent from a chatbot into an intelligent AWS operator
