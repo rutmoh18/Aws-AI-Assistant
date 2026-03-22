@@ -1,0 +1,68 @@
+import json
+import os
+import boto3
+
+REGION = os.environ.get("AWS_REGION", "ap-south-1")
+br = boto3.client("bedrock-agent-runtime", region_name=REGION)
+
+def _resp(code, body):
+    return {
+        "statusCode": code,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Methods": "POST,OPTIONS"
+        },
+        "body": json.dumps(body, default=str)
+    }
+
+def lambda_handler(event, context):
+    try:
+        method = event.get("requestContext", {}).get("http", {}).get("method", "")
+        if method == "OPTIONS":
+            return _resp(200, {"ok": True})
+
+        raw_body = event.get("body") or "{}"
+        payload = json.loads(raw_body) if isinstance(raw_body, str) else (raw_body or {})
+
+        # accept both keys: text OR message
+        user_text = (payload.get("text") or payload.get("message") or "").strip()
+        session_id = payload.get("session_id") or "demo-session-1"
+
+        agent_id = os.environ.get("AGENT_ID")
+        alias_id = os.environ.get("AGENT_ALIAS_ID")
+
+        if not agent_id or not alias_id:
+            return _resp(500, {"ok": False, "error": "Missing env vars", "need": ["AGENT_ID", "AGENT_ALIAS_ID"]})
+
+        if not user_text:
+            return _resp(400, {"ok": False, "error": "text/message is required"})
+
+        resp = br.invoke_agent(
+            agentId=agent_id,
+            agentAliasId=alias_id,
+            sessionId=session_id,
+            inputText=user_text
+        )
+
+        answer = ""
+        needs_approval = False
+
+        for ev in resp.get("completion", []):
+            if "returnControl" in ev:
+                needs_approval = True
+            chunk = ev.get("chunk", {}).get("bytes")
+            if chunk:
+                answer += chunk.decode("utf-8")
+
+        if needs_approval and not answer.strip():
+            return _resp(200, {
+                "ok": True,
+                "reply": "This action needs tool approval (action-group confirmation is ON). For your website chatbot, turn OFF 'Enable confirmation of action group function' in the agent action group, or build an Allow/Deny UI flow."
+            })
+
+        return _resp(200, {"ok": True, "reply": answer.strip()})
+
+    except Exception as e:
+        return _resp(500, {"ok": False, "error": str(e)})
