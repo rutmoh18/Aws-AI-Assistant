@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CloudOps Cost Cleanup Agent</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#111a2e; --panel2:#0e1730;
+      --border:#1d2a4a; --text:#e8eefc; --muted:#a9b6d3;
+      --user:#1d3557; --agent:#2a9d8f; --agentText:#07121f;
+      --btn:#ff9900; --btnText:#1b1200;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .wrap{max-width:980px;margin:0 auto;padding:22px;}
+    h1{font-size:20px;margin:0 0 12px 0;font-weight:700;}
+    .sub{color:var(--muted);margin:0 0 18px 0;font-size:14px;line-height:1.4;}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;}
+    .topbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .badge{font-size:12px;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02)}
+    .chat{height:62vh;overflow:auto;padding:12px;background:var(--panel2);border-radius:14px;border:1px solid rgba(255,255,255,0.05)}
+    .msg{margin:10px 0;padding:10px 12px;border-radius:12px;max-width:85%;white-space:pre-wrap;word-break:break-word;}
+    .u{background:var(--user);margin-left:auto;}
+    .a{background:var(--agent);color:var(--agentText);}
+    .row{display:flex;gap:10px;margin-top:12px;}
+    input{
+      flex:1;padding:12px 12px;border-radius:12px;border:1px solid #2b3b66;
+      background:#0b1220;color:var(--text);outline:none;
+    }
+    input::placeholder{color:#7f8fb3}
+    button{
+      padding:12px 16px;border-radius:12px;border:none;background:var(--btn);
+      color:var(--btnText);cursor:pointer;font-weight:700;
+    }
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .hint{margin-top:10px;color:var(--muted);font-size:13px;line-height:1.35}
+    .mini{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .chip{
+      border:1px solid var(--border);background:rgba(255,255,255,0.02);color:var(--text);
+      padding:8px 10px;border-radius:999px;font-size:12px;cursor:pointer;
+    }
+    .chip:hover{background:rgba(255,255,255,0.05)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CloudOps Cost Cleanup Agent</h1>
+    <p class="sub">
+      This demo chat uses an AWS Bedrock Agent behind the scenes to discover chargeable resources and guide cleanup safely.
+    </p>
+
+    <div class="card">
+      <div class="topbar">
+        <div class="badge">Backend: API Gateway</div>
+        <div class="badge" id="sessionBadge">Session: -</div>
+      </div>
+
+      <div id="chat" class="chat"></div>
+
+      <div class="mini">
+        <div class="chip" data-msg="Discover my resources in ap-south-1 and tell me which are chargeable.">Discover (ap-south-1)</div>
+        <div class="chip" data-msg="Show only chargeable resources and explain why.">Chargeable only</div>
+        <div class="chip" data-msg="Explain NAT Gateway cost and impact in simple words.">NAT cost explain</div>
+      </div>
+
+      <div class="row">
+        <input id="text" placeholder="Type your request… e.g., Discover my resources in ap-south-1" />
+        <button id="send">Send</button>
+      </div>
+
+      <div class="hint">
+        Tip: For deletion, the agent will ask for confirmation (and the UI may show a confirmation step).
+        Always verify resource IDs before confirming.
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ✅ Your API Gateway base URL + /chat route
+  const API_URL = "https://9780b0dyo5.execute-api.ap-south-1.amazonaws.com/chat";
+
+  const chatEl = document.getElementById("chat");
+  const textEl = document.getElementById("text");
+  const sendBtn = document.getElementById("send");
+  const sessionBadge = document.getElementById("sessionBadge");
+
+  // session id keeps agent context in the same chat
+  const sessionId = (crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+  sessionBadge.textContent = "Session: " + sessionId.slice(0, 8);
+
+  function addMsg(role, text) {
+    const div = document.createElement("div");
+    div.className = "msg " + (role === "user" ? "u" : "a");
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  async function send(msgOverride) {
+    const txt = (msgOverride ?? textEl.value).trim();
+    if (!txt) return;
+
+    if (!msgOverride) textEl.value = "";
+    addMsg("user", txt);
+
+    sendBtn.disabled = true;
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          text: txt,
+          session_id: sessionId
+        })
+      });
+
+      // If API returns non-200, still show the body
+      const raw = await res.text();
+      let data = {};
+      try { data = JSON.parse(raw); } catch(e) {}
+
+      if (!res.ok) {
+        addMsg("assistant", "API Error (" + res.status + "):\n" + (data.reply || raw));
+      } else {
+        addMsg("assistant", data.reply || "No reply received.");
+      }
+    } catch (e) {
+      addMsg("assistant", "Network error calling backend:\n" + e);
+    } finally {
+      sendBtn.disabled = false;
+      textEl.focus();
+    }
+  }
+
+  sendBtn.addEventListener("click", () => send());
+  textEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+
+  // quick chips
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => send(chip.dataset.msg));
+  });
+
+  // starter message
+  addMsg("assistant",
+    "Hi! Try:\n" +
+    "• Discover my resources in ap-south-1 and tell me which are chargeable.\n" +
+    "• If you want to delete something, ask: Delete EIP eipalloc-xxxx (the agent will request confirmation)."
+  );
+</script>
+</body>
+</html>
