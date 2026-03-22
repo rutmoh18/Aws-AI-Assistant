@@ -1,0 +1,157 @@
+
+🧪 Testing the AI Agent & Lambda Integration (Before Frontend)
+
+📌 Overview
+
+
+Before integrating the chatbot interface, we first validate the complete backend setup directly inside the Amazon Bedrock Console.
+
+This includes:
+
+✅ AI Agent understanding user queries
+
+✅ Agent following defined instructions (Brain Rules)
+
+✅ Action Group correctly invoking Lambda
+
+✅ Lambda returning proper responses
+
+
+👉 This step ensures that the AI + backend automation pipeline is fully functional before adding the frontend.
+
+  
+🔐 Add Lambda Resource-Based Policy (Mandatory Step)
+
+📌 Why This Is Required
+
+
+Amazon Bedrock Agent needs permission to invoke the Lambda function.
+
+👉 By default, Lambda blocks external service invocation
+👉 So we must add a resource-based policy
+
+🚨 Without This Step
+
+You will get error like:
+
+
+Access denied while invoking Lambda function
+🪜 Steps to Add Permission
+Open AWS Console → Lambda
+Select your function: BedrockCostAgentTools
+Go to Configuration → Permissions
+Click Add permissions
+Select AWS account
+Fill the following:
+⚙️ Configuration
+Statement ID:
+AllowBedrockInvoke
+
+Principal:
+
+bedrock.amazonaws.com
+
+Action:
+
+lambda:InvokeFunction
+Click Save
+✅ Result
+Bedrock Agent can now invoke Lambda
+Access denied error is resolved
+Agent ↔ Lambda integration works successfully
+⚙️ Test Preparation — Create a Chargeable Resource
+
+Before testing, ensure your AWS account has at least one chargeable resource.
+
+👉 If not, create a temporary resource for testing.
+
+🌐 Why Use Elastic IP?
+⚡ Easy to create
+💰 Chargeable when unattached
+🧹 Safe to delete after testing
+💸 Cost Note
+Approx cost: $0.005/hour
+Around: ₹0.40 – ₹0.45/hour
+
+👉 Since it will be deleted during testing, cost is minimal.
+
+  
+🪜 Steps to Create Elastic IP
+Open AWS Console → EC2
+Go to Elastic IPs
+Click Allocate Elastic IP address
+Keep default settings
+Click Allocate
+Ensure it shows as Unattached
+
+
+🧪 Testing the Agent
+📍 Where to Test
+Open Amazon Bedrock Console
+Navigate to:
+Agents → CloudFolks-AWS-Admin-Agent
+Use the Test Chat Panel (Right Side)
+
+🔍 Test Scenarios
+
+✅ Test 1 — Discover Chargeable Resources
+
+🧑 Input:
+Find chargeable resources in ap-south-1
+⚙️ Expected Behavior:
+Agent calls discover_cost_resources
+Lambda scans AWS resources
+Results are returned
+Agent explains chargeable resources
+
+📌 Example Output:
+I found the following chargeable resources:
+- Unattached Elastic IP
+
+🗑️ Test 2 — Request Deletion
+🧑 Input:
+Delete EIP eipalloc-xxxx
+⚙️ Expected Behavior:
+❌ No immediate deletion
+Agent asks for confirmation
+
+📌 Example Output:
+Type exactly CONFIRM to proceed
+
+🔐 Test 3 — Confirm Deletion
+
+🧑 Input:
+
+CONFIRM
+
+⚙️ Expected Behavior:
+Agent calls delete_cost_resource
+Lambda deletes the resource
+Agent confirms deletion
+
+📌 Example Output:
+Elastic IP successfully deleted
+🎯 Why This Step Is Important
+
+This phase ensures:
+
+✅ Agent instructions are working
+✅ Action Groups are correctly configured
+✅ Lambda functions are executing properly
+✅ Safe deletion workflow is enforced
+
+👉 Issues can be fixed here before frontend integration
+
+🚀 Final Result
+
+After successful testing:
+
+✅ AI Agent is fully functional
+✅ Backend automation works correctly
+✅ Resource discovery & deletion validated
+✅ System ready for frontend integration
+
+  
+🧠 Key Insight
+
+This step proves that the AI agent can safely automate AWS operations using real infrastructure with human confirmation control.
