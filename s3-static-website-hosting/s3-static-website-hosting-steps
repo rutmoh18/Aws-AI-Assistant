@@ -49,16 +49,13 @@ Click Save
 
 S3 will generate a website URL like:
 
-http://bedrock-agent-chat-ui.s3-website-ap-south-1.amazonaws.com
-
+http://ritik-bedrock-agent-chat-ui.s3-website.ap-south-1.amazonaws.com
 
 💻 Step 3 — Create & Configure Frontend (index.html)
 
 🔹 3.1 Get Frontend Code
 
-Open Gist:
-
-https://gist.githubusercontent.com/CloudFolksPublic/.../index.html
+Open s3-web-code-file 
 
 🔹 3.2 Create File Locally
 Open VS Code / Notepad
@@ -72,7 +69,7 @@ NOT index.html.txt
 Extension must be .html
 
 🔹 3.3 Paste Code
-Copy full code from s3-web-code Paste into index.html
+Copy full code from s3-web-code-file Paste into index.html
 Save file
 
 🔹 3.4 Update API URL (VERY IMPORTANT)
@@ -126,7 +123,9 @@ Click Save changes
 
 Open:
 
-http://bedrock-agent-chat-ui.s3-website-ap-south-1.amazonaws.com
+http://ritik-bedrock-agent-chat-ui.s3-website.ap-south-1.amazonaws.com
+
+
 ✅ Final Architecture Flow
 User (Browser)
    ↓
