@@ -33,7 +33,7 @@ API Gateway (/chat)
 ↓
 Lambda (BedrockAgentChatProxy)
 ↓
-Bedrock Agent (CloudFolks-AWS-Admin-Agent)
+Bedrock Agent (Ritik-AWS-Admin-Agent)
 ↓
 Action Group (CostCleanupTools)
 ↓
