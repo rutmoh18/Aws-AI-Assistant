@@ -1,0 +1,129 @@
+Create Chat Proxy Lambda Function
+📌 Overview
+
+This Lambda function acts as a secure backend bridge between:
+
+Frontend → API Gateway → Lambda → Bedrock Agent
+
+It:
+
+Invokes Bedrock Agent
+Processes response
+Returns output to frontend
+
+🪜 Step-by-Step Implementation
+
+🔹 Step 1 — Create Lambda Function
+Open AWS Console → Lambda
+Click Create function
+Select:
+Author from scratch
+
+🔹 Step 2 — Basic Configuration
+
+Fill the following details:
+
+Function Name:
+BedrockAgentChatProxy
+Runtime:
+Python 3.12
+Architecture:
+x86_64
+
+🔹 Step 3 — Attach Execution Role
+Scroll to Permissions
+Click Change default execution role
+Select:
+Use an existing role
+Choose:
+BedrockAgentChatProxyRole
+
+👉 (Ensure this role has:)
+
+BedrockAgentInvokePolicy
+AWSLambdaBasicExecutionRole
+
+🔹 Step 4 — Add Lambda Code
+Go to Code tab
+Remove default code
+Copy full code from chat proxy code file and Paste into Lambda editor
+Click Deploy
+
+🔹 Step 5 — Configure Lambda Settings
+Go to:
+Configuration → General configuration
+Click Edit
+Set values:
+Memory:
+512 MB
+Timeout:
+30 seconds
+Click Save
+
+🔹 Step 6 — Configure Environment Variables
+📌 Why Required?
+
+Lambda needs:
+
+Agent ID → which agent to call
+Alias ID → which version to use
+🪜 Add Variables
+Go to:
+Configuration → Environment variables
+Click Edit → Add environment variable
+🔸 Variable 1 — AGENT_ID
+Key:
+AGENT_ID
+Value:
+👉 Your Bedrock Agent ID
+📍 How to Get Agent ID
+Open Amazon Bedrock
+Click Agents
+Select your agent
+Copy Agent ID
+
+Example:
+
+HMYXWRJWOG
+🔸 Variable 2 — AGENT_ALIAS_ID
+Key:
+AGENT_ALIAS_ID
+Value:
+👉 Your Alias ID
+📍 How to Create & Get Alias ID
+Open your agent
+Go to Aliases tab
+👉 If alias not created:
+Click Create alias
+Enter name:
+production
+Select:
+Create a new version and associate it
+Click Create
+👉 After creation:
+
+Scroll down → copy Alias ID
+
+Example:
+
+RZZA9Z0DXI
+
+🔹 Step 7 — Save Environment Variables
+
+👉 Click Save
+
+
+✅ Final Result
+
+✔ Lambda function created
+✔ IAM role attached
+✔ Bedrock Agent connected
+✔ Environment variables configured
+
+🧠 Important Notes
+Agent ID = Agent identity
+Alias ID = Version control
+Lambda uses both to call correct agent
+
+🚀 Summary Flow
+User → Frontend → API Gateway → Lambda → Bedrock Agent → Response
