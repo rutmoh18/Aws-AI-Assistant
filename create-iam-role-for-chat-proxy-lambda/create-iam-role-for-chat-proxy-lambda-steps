@@ -1,0 +1,156 @@
+🌐 Frontend Configuration
+📌 Why Do We Need a Frontend?
+
+Until now, the AI Agent was tested inside the Amazon Bedrock Console.
+
+However, in real-world applications:
+
+Users do not interact via AWS Console
+They need a simple UI (chat interface)
+They should be able to send messages and receive responses easily
+
+👉 Therefore, we build a web-based chatbot interface that acts as the entry point to the AI system.
+
+🖥️ Frontend Hosting (Amazon S3)
+
+The chatbot UI is built using:
+
+HTML
+CSS
+JavaScript
+
+👉 Since these are static files, we host them using Amazon S3 Static Website Hosting
+
+✅ Advantages of S3 Hosting
+🚫 No server management
+💰 Very low cost
+⚡ High availability
+🚀 Easy deployment
+⚠️ Limitation 1 — S3 Frontend Cannot Call Bedrock Directly
+
+A static frontend cannot directly call Bedrock APIs because:
+
+Bedrock requires AWS authentication
+Exposing credentials in browser = security risk ❌
+🚨 Risks
+
+If we call Bedrock directly from frontend:
+
+Credentials become visible ❌
+Anyone can misuse them ❌
+🔐 Solution — Chat Proxy Lambda
+
+To solve this, we introduce:
+
+👉 Chat Proxy Lambda
+
+This Lambda acts as a secure backend layer between:
+
+Frontend → Lambda → Bedrock
+🎯 Responsibilities of Chat Proxy Lambda
+🔐 Securely invoke Bedrock Agent
+🛡️ Protect AWS credentials
+⚙️ Process agent response
+📤 Return response to frontend
+⚠️ Limitation 2 — S3 Cannot Call Lambda Directly
+
+👉 Problem:
+
+Browser cannot directly invoke Lambda
+Lambda needs a public endpoint
+🌍 Solution — API Gateway
+
+We use Amazon API Gateway to expose Lambda via HTTPS.
+
+🔗 Flow
+User
+ ↓
+S3 Chat Interface
+ ↓
+API Gateway
+ ↓
+Chat Proxy Lambda
+ ↓
+Bedrock Agent
+ ↓
+Action Group
+ ↓
+Lambda Tool
+ ↓
+AWS Services
+
+🚀 Final Result
+✅ Frontend provides chat UI
+✅ API Gateway provides secure endpoint
+✅ Lambda protects credentials
+✅ Bedrock Agent performs AI reasoning
+✅ Full system becomes secure AI automation platform
+
+
+🔐 — Create IAM Role for Chat Proxy Lambda
+📌 Overview
+
+Before creating the Chat Proxy Lambda, we must create an IAM Role.
+
+👉 This role allows Lambda to securely interact with:
+
+Amazon Bedrock
+Amazon CloudWatch
+🪜 Steps to Create IAM Role
+1️⃣ Open IAM
+Go to AWS Console → IAM
+Click Roles
+Click Create role
+2️⃣ Select Trusted Entity
+Select AWS Service
+Choose Lambda
+Click Next
+3️⃣ Attach Required Permissions
+
+👉 Attach the following:
+
+🔹 1. Custom Bedrock Policy (IMPORTANT)
+
+Since bedrock:InvokeAgent is not a managed policy, create a custom one:
+
+👉 Create Policy → JSON:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeAgent"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+👉 Policy Name:
+BedrockAgentInvokePolicy
+👉 Attach this policy to the role
+🔹 2. AWS Managed Policy
+
+Attach:
+
+AWSLambdaBasicExecutionRole
+
+👉 This enables:
+
+CloudWatch logging
+Basic Lambda execution
+4️⃣ Configure Role
+Role Name:
+BedrockAgentChatProxyRole
+5️⃣ Create Role
+
+Click Create role
+
+✅ Result
+Lambda can invoke Bedrock Agent
+Logging is enabled
+Secure backend communication established
+
+🧠 Key Insight
+
+IAM Roles ensure secure service-to-service communication without exposing credentials.
