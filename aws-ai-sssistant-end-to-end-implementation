@@ -1,0 +1,126 @@
+AWS AI Assistant – End-to-End Implementation
+
+🧠 1. Created Amazon Bedrock Agent
+Agent Name: CloudFolks-AWS-Admin-Agent
+Model: Nova Pro
+Purpose: Automate AWS resource discovery and cost optimization
+
+
+🧾 2. Defined Agent Instructions
+
+Designed safe workflow:
+
+Discover → Explain → Recommend → Confirm → Delete
+Prevented direct deletion without confirmation
+
+
+🔐 3. Created IAM Role #1 (Tool Lambda Role)
+Role Name: BedrockCostAgentLambdaRole
+Permissions:
+EC2 (Describe, Release Elastic IP)
+EBS (Describe, Delete Snapshots)
+CloudWatch Logs
+
+
+⚙️ 4. Created Lambda Function #1
+Function Name: BedrockCostAgentTools
+Purpose:
+Identify chargeable resources
+Perform deletion operations
+
+
+🔧 5. Implemented Lambda Logic
+discover_cost_resources → scans AWS resources
+delete_cost_resource → deletes resource after confirmation
+
+
+🔗 6. Created Action Group
+Name: CostCleanupTools
+Connected Lambda: BedrockCostAgentTools
+
+
+🧩 7. Exposed Functions to Agent
+Resource discovery function
+Resource deletion function (with CONFIRM token)
+
+
+🧪 8. Tested Agent in Bedrock Console
+Tested scenarios:
+Discover resources
+Delete Elastic IP
+Verified confirmation workflow
+
+
+🔐 9. Created IAM Role #2 (Chat Proxy Role)
+Role Name: BedrockAgentChatProxyRole
+Permissions:
+bedrock:InvokeAgent
+CloudWatch Logs
+
+
+⚙️ 10. Created Lambda Function #2
+Function Name: BedrockAgentChatProxy
+Purpose:
+Connect frontend with Bedrock Agent
+
+
+🧠 11. Implemented Chat Proxy Logic
+Accepts user input
+Invokes Bedrock Agent
+Returns formatted response
+
+
+🔑 12. Added Environment Variables
+AGENT_ID → Bedrock Agent ID
+AGENT_ALIAS_ID → Agent Alias ID
+
+
+🔄 13. Created Bedrock Agent Alias
+Alias Name: production
+Associated with latest agent version
+Generated Alias ID
+
+
+🌐 14. Created API Gateway
+API Name: Chat-Integration
+Type: HTTP API
+
+
+🔗 15. Configured Route
+POST /chat
+
+
+🔌 16. Attached Lambda Integration
+Integrated with: BedrockAgentChatProxy
+
+
+🌍 17. Enabled CORS
+Allow-Origin: *
+Methods: POST, OPTIONS
+Headers: *
+
+
+🚀 18. Deployed API
+Generated endpoint:
+https://<api-id>.execute-api.ap-south-1.amazonaws.com/chat
+
+
+💻 19. Setup Frontend using S3
+Bucket Name: ritik-bedrock-agent-chat-ui
+Enabled static website hosting
+Uploaded index.html
+Updated API URL in frontend code
+
+
+🔓 20. Enabled Public Access
+Added bucket policy to allow public read access
+Hosted chatbot UI accessible via S3 website endpoint
+
+
+🎯 Final Outcome
+Built an AI-powered AWS assistant that:
+Detects chargeable resources
+Explains cost impact
+Performs safe deletion after confirmation
+Fully serverless architecture:
+S3 → API Gateway → Lambda → Bedrock Agent → Lambda → AWS Services
