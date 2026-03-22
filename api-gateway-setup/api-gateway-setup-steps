@@ -1,0 +1,136 @@
+API Gateway Setup (Connect Frontend to Lambda)
+📌 Overview
+
+To allow users to interact with the AI Agent from a browser, we need a public API endpoint.
+
+👉 Amazon API Gateway provides this endpoint and connects:
+
+Frontend → API Gateway → Lambda → Bedrock Agent
+🪜 Step-by-Step Implementation
+
+🔹 Step 1 — Open API Gateway
+Open AWS Management Console
+Search for:
+API Gateway
+Click API Gateway
+
+
+🔹 Step 2 — Create New API
+Click Create API
+Select:
+HTTP API
+
+👉 (Recommended for simplicity and low cost)
+
+Click Build
+
+
+🔹 Step 3 — Configure API
+Enter API name:
+Chat-Integration
+Click Next (skip integrations for now)
+Click Next (skip routes for now)
+Click Next (skip stages config)
+Click Create
+
+
+🔹 Step 4 — Create Route
+
+👉 Route = endpoint path
+
+Go to:
+Develop → Routes
+Click Create
+Enter:
+Method:
+POST
+Resource path:
+/chat
+Click Create
+
+
+🔹 Step 5 — Attach Lambda Integration
+Click on route:
+POST /chat
+Go to Integration
+Click:
+Attach Integration
+Select:
+Lambda function
+Choose Lambda:
+BedrockAgentChatProxy
+Click Create
+
+👉 Now route is connected to Lambda:
+
+POST /chat → Lambda
+
+🔹 Step 6 — Verify Deployment
+Go to:
+Deploy → Stages
+Select:
+$default
+Check:
+✅ Automatic deployment = Enabled
+✅ Route deployed successfully
+
+
+🔹 Step 7 — Get API Endpoint
+
+You will see:
+
+Invoke URL:
+https://abc123.execute-api.ap-south-1.amazonaws.com
+
+👉 Final chatbot endpoint:
+
+https://abc123.execute-api.ap-south-1.amazonaws.com/chat
+
+
+🔹 Step 8 — Enable CORS (Very Important ⚠️)
+
+👉 Required for frontend (browser requests)
+
+Steps:
+Open your API
+Click CORS
+Click Configure
+Add:
+Access-Control-Allow-Origin
+*
+Access-Control-Allow-Methods
+POST, OPTIONS
+Access-Control-Allow-Headers
+*
+Click Save
+
+
+🔹 Step 9 — (Optional but Recommended) Test API
+Using Postman / Curl
+POST https://abc123.execute-api.ap-south-1.amazonaws.com/chat
+
+Body:
+
+{
+  "message": "Find chargeable resources"
+}
+
+
+🧠 Final Architecture Flow
+User (Browser)
+     ↓
+S3 Frontend (Chat UI)
+     ↓
+API Gateway (/chat)
+     ↓
+Lambda (Chat Proxy)
+     ↓
+Bedrock Agent
+     ↓
+AWS Resources
+
+
+✅ Result
+API Gateway provides public endpoint
+Lambda securely calls Bedrock
+Frontend can now interact with AI Agent
