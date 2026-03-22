@@ -1,0 +1,147 @@
+Frontend Deployment using Amazon S3 (Static Website Hosting)
+📌 Overview
+
+In this step, we will:
+
+Create an S3 bucket
+Enable static website hosting
+Upload chatbot frontend (index.html)
+Connect frontend with API Gateway
+Make the website publicly accessible
+
+
+🪜 Step 1 — Create S3 Bucket
+Open AWS Management Console
+Navigate to Amazon S3
+Click Create bucket
+Configure Bucket:
+Bucket type → General purpose
+
+Bucket name →
+
+bedrock-agent-chat-ui
+
+(or any unique name)
+
+⚠️ Important:
+
+Uncheck:
+
+Block all public access
+Tick acknowledgment checkbox
+Click Create bucket
+
+
+🌐 Step 2 — Enable Static Website Hosting
+Open your created bucket
+Go to Properties tab
+Scroll to Static website hosting
+Click Edit
+Configure:
+Enable → ✅
+Hosting type → Host a static website
+
+Index document:
+
+index.html
+Click Save
+📌 Output:
+
+S3 will generate a website URL like:
+
+http://bedrock-agent-chat-ui.s3-website-ap-south-1.amazonaws.com
+
+
+💻 Step 3 — Create & Configure Frontend (index.html)
+
+🔹 3.1 Get Frontend Code
+
+Open Gist:
+
+https://gist.githubusercontent.com/CloudFolksPublic/.../index.html
+
+🔹 3.2 Create File Locally
+Open VS Code / Notepad
+Create new file
+Save as:
+index.html
+
+⚠️ Make sure:
+
+NOT index.html.txt
+Extension must be .html
+
+🔹 3.3 Paste Code
+Copy full code from s3-web-code Paste into index.html
+Save file
+
+🔹 3.4 Update API URL (VERY IMPORTANT)
+
+Find this line:
+
+const API_URL = "YOUR_API_GATEWAY_URL";
+
+Replace with your API:
+
+const API_URL = "https://9780b0dyo5.execute-api.ap-south-1.amazonaws.com/chat";
+⚠️ Important:
+/chat must be included
+Same endpoint used in Postman
+
+
+📤 Step 4 — Upload Frontend to S3
+Open your S3 bucket
+Click Upload
+
+Select file:
+
+index.html
+Click Upload
+
+
+🔓 Step 5 — Allow Public Access (Bucket Policy)
+Go to Permissions tab
+Scroll to Bucket Policy
+Click Edit
+Paste this policy:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::bedrock-agent-chat-ui/*"
+    }
+  ]
+}
+
+👉 Replace:
+
+bedrock-agent-chat-ui → your bucket name
+Click Save changes
+
+
+🌍 Step 6 — Access Your Website
+
+Open:
+
+http://bedrock-agent-chat-ui.s3-website-ap-south-1.amazonaws.com
+✅ Final Architecture Flow
+User (Browser)
+   ↓
+S3 Static Website (Frontend UI)
+   ↓
+API Gateway (/chat)
+   ↓
+Lambda (Chat Proxy)
+   ↓
+Bedrock Agent
+   ↓
+AWS Services (EIP, EBS, etc.)
+
+
+🎉 Result
+Fully working AI chatbot UI
+Secure backend using Lambda
+AI-powered AWS automation system
